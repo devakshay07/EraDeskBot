@@ -80,23 +80,21 @@ void idleScan() {
   if (!restMode) {
 
     if (millis() - lastMove > moveInterval) {
-
       targetPan = random(20, 160);
       targetTilt = random(60, 120);
-
-      roboEyes.setPosition(positions[random(0, 9)]);
-      roboEyes.blink();
-
+      // We rely on roboEyes native idleMode for the eye movements!
       lastMove = millis();
     }
 
     if (millis() - stateTimer >= ACTIVE_TIME) {
-
       restMode = true;
       stateTimer = millis();
-
       targetPan = 90;
       targetTilt = 90;
+      
+      roboEyes.setMood(TIRED); // Get sleepy
+      roboEyes.setIdleMode(false); // Stop looking around actively
+      roboEyes.setPosition(DEFAULT); // Center the eyes
     }
   }
 
@@ -105,18 +103,19 @@ void idleScan() {
     targetPan = 90;
     targetTilt = 90;
 
-    if (millis() - lastEyeMove > 1500) {
-
-      roboEyes.setPosition(positions[random(0, 9)]);
-      roboEyes.blink();
-
+    if (millis() - lastEyeMove > 5000) {
+      // Randomly do something while sleeping
+      int r = random(0, 10);
+      if (r > 8) roboEyes.animConfused(); // Have a weird dream
       lastEyeMove = millis();
     }
 
     if (millis() - stateTimer >= REST_TIME) {
-
       restMode = false;
       stateTimer = millis();
+      
+      roboEyes.setMood(DEFAULT); // Wake up
+      roboEyes.setIdleMode(true, 4, 2); // Start actively looking around again
     }
   }
 }
