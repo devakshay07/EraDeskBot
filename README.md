@@ -36,6 +36,15 @@ Powered by an OLED display and dual servos, it adds a literal spark of life to y
 
 ---
 
+## 📦 Required Libraries
+If you're using PlatformIO, these are automatically installed via `platformio.ini`. If you're using the standard **Arduino IDE**, you must install these via the Library Manager:
+- `Adafruit GFX Library` by Adafruit
+- `Adafruit SSD1306` by Adafruit
+- `ESP32Servo` by Kevin Harrington, John K. Bennett
+- `FluxGarage RoboEyes` by FluxGarage
+
+---
+
 ## 🚀 Getting Started
 
 This project is natively configured for **PlatformIO**.
