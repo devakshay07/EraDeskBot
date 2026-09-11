@@ -57,6 +57,134 @@ class MyAdvertisedDeviceCallbacks: public NimBLEAdvertisedDeviceCallbacks {
     }
 };
 
+/* POMODORO SYSTEM */
+#define TOUCH_PIN 10
+enum PomoState { POMO_INACTIVE, POMO_CONFIG, POMO_RUNNING, POMO_PAUSED };
+PomoState pomoState = POMO_INACTIVE;
+int pomoMinutes = 0;
+unsigned long pomoStartTime = 0;
+unsigned long pomoRemainingMs = 0;
+
+bool lastTouch = false;
+unsigned long touchStartTime = 0;
+bool touchHandled = false;
+
+void onPomoTap() {
+  if (pomoState == POMO_INACTIVE) {
+    pomoState = POMO_CONFIG;
+    pomoMinutes = 25; // Default starting minutes
+    targetPan = 90; targetTilt = 90; // Center the head
+  } else if (pomoState == POMO_CONFIG) {
+    pomoMinutes += 5;
+    if (pomoMinutes > 120) pomoMinutes = 5;
+  } else if (pomoState == POMO_RUNNING) {
+    pomoState = POMO_PAUSED;
+    pomoRemainingMs = pomoRemainingMs - (millis() - pomoStartTime);
+  } else if (pomoState == POMO_PAUSED) {
+    pomoState = POMO_RUNNING;
+    pomoStartTime = millis();
+  }
+}
+
+void onPomoHold() {
+  if (pomoState == POMO_CONFIG) {
+    pomoState = POMO_RUNNING;
+    pomoRemainingMs = pomoMinutes * 60000UL;
+    pomoStartTime = millis();
+  } else if (pomoState == POMO_RUNNING || pomoState == POMO_PAUSED) {
+    pomoState = POMO_INACTIVE;
+  }
+}
+
+void handleTouch() {
+  bool currentTouch = (digitalRead(TOUCH_PIN) == HIGH); // Assumes active HIGH like TTP223
+  
+  if (currentTouch && !lastTouch) {
+    touchStartTime = millis();
+    touchHandled = false;
+  }
+
+  if (currentTouch && !touchHandled) {
+    if (millis() - touchStartTime > 3000) { // 3-second hold
+      touchHandled = true;
+      onPomoHold();
+    }
+  }
+
+  if (!currentTouch && lastTouch) {
+    if (!touchHandled) {
+      if (millis() - touchStartTime > 50) { // Debounce tap
+        onPomoTap();
+      }
+    }
+  }
+  lastTouch = currentTouch;
+}
+
+void drawPomodoroUI() {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  
+  if (pomoState == POMO_CONFIG) {
+    display.setTextSize(1);
+    display.setCursor(35, 5);
+    display.print("POMO SETUP");
+    display.setTextSize(3);
+    
+    // Center text roughly
+    if (pomoMinutes < 10) display.setCursor(45, 25);
+    else if (pomoMinutes < 100) display.setCursor(35, 25);
+    else display.setCursor(25, 25);
+    
+    display.print(pomoMinutes);
+    display.print("m");
+  } else {
+    unsigned long remaining = pomoRemainingMs;
+    if (pomoState == POMO_RUNNING) {
+      if (millis() - pomoStartTime >= pomoRemainingMs) {
+        remaining = 0;
+      } else {
+        remaining = pomoRemainingMs - (millis() - pomoStartTime);
+      }
+    }
+    
+    int mins = remaining / 60000;
+    int secs = (remaining % 60000) / 1000;
+    
+    display.setTextSize(1);
+    
+    if (pomoState == POMO_PAUSED) {
+      display.setCursor(45, 5);
+      display.print("PAUSED");
+    } else if (remaining == 0) {
+      display.setCursor(45, 5);
+      display.print("DONE!");
+    } else {
+      display.setCursor(45, 5);
+      display.print("FOCUS");
+    }
+    
+    display.setTextSize(3);
+    display.setCursor(20, 25);
+    if (mins < 10) display.print("0");
+    display.print(mins);
+    display.print(":");
+    if (secs < 10) display.print("0");
+    display.print(secs);
+    
+    // Shake head when done
+    if (remaining == 0) {
+      if (millis() - lastMove > 500) {
+        targetPan = (targetPan == 70) ? 110 : 70;
+        lastMove = millis();
+      }
+    } else {
+      targetPan = 90; targetTilt = 90;
+    }
+  }
+  display.display();
+}
+
 /* ================= SERVO ================= */
 void updateServo() {
   if (millis() - lastServoUpdate < servoSpeed) return;
@@ -117,8 +245,9 @@ void setup() {
   Serial.begin(115200);
   randomSeed(esp_random());
 
-  /* OTA Button Setup */
+  /* HW Inputs */
   pinMode(OTA_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(TOUCH_PIN, INPUT);
   WiFi.mode(WIFI_OFF); // Start with WiFi completely off for max radio performance
 
   /* I2C & Display */
@@ -160,6 +289,8 @@ void setup() {
 /* ================= LOOP ================= */
 void loop() {
   esp_task_wdt_reset();
+
+  handleTouch();
 
   /* OTA Button Logic */
   if (!otaActive && digitalRead(OTA_BUTTON_PIN) == LOW) {
@@ -203,7 +334,12 @@ void loop() {
     }
   }
 
-  idleScan();
   updateServo();
-  roboEyes.update();
+
+  if (pomoState == POMO_INACTIVE) {
+    idleScan();
+    roboEyes.update();
+  } else {
+    drawPomodoroUI();
+  }
 }

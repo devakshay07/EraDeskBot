@@ -13,6 +13,7 @@ Meet **Era DeskBot**, a tiny, expressive, and zero-setup smart desk companion bu
 ## ⚡ Key Features
 
 - **Zero-Setup BLE Proximity Detection:** Era automatically detects when you sit at your desk by passively scanning for the raw BLE signals emitted by your iPhone, Apple Watch, or AirPods. No apps, no pairing, no hardcoded MAC addresses. Just walk up, and it wakes up.
+- **Physical Pomodoro Timer (Touch Sensor):** Tap a capacitive touch sensor (GPIO 10) to instantly transform Era into a focus timer. The robot halts its animations, stares straight ahead, and displays a crisp Pomodoro UI on its OLED. Tap to add 5 minutes, hold to start/pause. When the timer hits zero, the bot physically shakes its head to alert you.
 - **Expressive OLED Eyes:** Uses the `FluxGarage RoboEyes` library for smooth, animated expressions (blinking, tiredness, confusion).
 - **On-Demand OTA Updates (No Stutter):** To prevent radio bottlenecks, Wi-Fi stays physically powered off. Pressing the physical BOOT button (GPIO 9) kills the BLE scanner to give 100% of the radio to Wi-Fi for exactly 5 minutes. The bot continues to animate and look around normally while listening for an Over-The-Air firmware flash. After 5 minutes, it kills the Wi-Fi and reboots the BLE scanner to restore maximum performance.
 - **Smooth 2-Axis Motion:** Pan and tilt tracking using dual servos with built-in software easing for fluid movements.
