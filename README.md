@@ -1,47 +1,94 @@
-# 🤖 Era DeskBot
+# 🤖 Era DeskBot - The ESP32-C3 Smart Desk Companion
 
 ![Era DeskBot Banner](https://img.shields.io/badge/Era_DeskBot-Active-brightgreen?style=for-the-badge&logo=robot)
+![Platform](https://img.shields.io/badge/Platform-ESP32--C3-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-Meet **Era DeskBot**, a tiny, expressive, and slightly dramatic desk companion built around the ESP32-C3 Supermini. Era watches you work, gets bored when you ignore it, and judges your code silently. 
+Meet **Era DeskBot**, a tiny, expressive, and zero-setup smart desk companion built on the **ESP32-C3 Supermini**. Era watches you work, gets bored when you ignore it, tracks your physical presence using invisible BLE fields, and judges your code silently.
 
-Powered by an OLED display and dual servos, it adds a literal spark of life to your workstation.
+> **Keywords:** `ESP32-C3 Supermini`, `Desk Companion Robot`, `Desktop Robot`, `Arduino`, `PlatformIO`, `BLE Proximity Detection`, `Servo Robot Eyes`, `OLED SSD1306 Robot`, `Open Source Robot`, `DIY AI Assistant Hardware`
 
 ---
 
-## ⚡ Features
-- **Expressive OLED Eyes:** Uses the FluxGarage RoboEyes library for smooth, animated expressions (blinking, looking around, acting curious).
-- **Smooth 2-Axis Motion:** Pan and tilt tracking using dual servos with built-in software easing for fluid, non-jerky movements.
-- **State Machine Architecture:** Non-blocking `millis()` based loops. The bot seamlessly transitions between active tracking and a dormant "rest mode".
-- **Hardware Watchdog:** Bulletproof ESP-IDF watchdog implementation. If the main loop ever hangs, the bot forcefully recovers itself.
+## ⚡ Key Features
+
+- **Zero-Setup BLE Proximity Detection:** Era automatically detects when you sit at your desk by passively scanning for the raw BLE signals emitted by your iPhone, Apple Watch, or AirPods. No apps, no pairing, no hardcoded MAC addresses. Just walk up, and it wakes up.
+- **Expressive OLED Eyes:** Uses the `FluxGarage RoboEyes` library for smooth, animated expressions (blinking, tiredness, confusion).
+- **Over-The-Air (OTA) Updates:** Lightweight, non-blocking OTA update support. Flash new code wirelessly without dropping frames.
+- **Smooth 2-Axis Motion:** Pan and tilt tracking using dual servos with built-in software easing for fluid movements.
+- **State Machine Architecture:** Non-blocking `millis()` based loops and hardware Watchdog protection.
 
 ---
 
 ## 🛠️ Hardware Requirements
-- **Microcontroller:** ESP32-C3 Supermini (or equivalent ESP32 board).
-- **Display:** 0.96" I2C OLED Display (SSD1306).
+
+- **Microcontroller:** ESP32-C3 Supermini
+- **Display:** 0.96" I2C OLED Display (SSD1306)
 - **Actuators:** 2x Micro Servos (Pan and Tilt). *Upgrading to MG90S metal-gear servos is highly recommended over standard SG90s!*
-- **Power (CRITICAL):** Do NOT power the servos directly from the ESP32 3.3V/5V rails. Use a dedicated 5V buck converter or external power supply capable of at least 2 Amps, and tie the grounds together.
+- **Power (CRITICAL):** Do NOT power the servos directly from the ESP32 3.3V/5V rails. Use a dedicated 5V buck converter (>= 2A) and tie the grounds together.
 
-## 📌 Pinout & Wiring
+---
 
-| Component | ESP32-C3 Supermini Pin | Notes |
-| :--- | :--- | :--- |
-| **OLED SDA** | GPIO 4 | Custom routed I2C |
-| **OLED SCL** | GPIO 5 | Custom routed I2C |
-| **Pan Servo** | GPIO 7 | Safe GPIO for PWM |
-| **Tilt Servo** | GPIO 6 | Safe GPIO for PWM |
+## 📌 Circuit Diagram & Wiring
 
-*(Note: TILT_PIN is safely mapped to GPIO 6 to avoid boot collisions with the onboard LED / bootstrapping).*
+```mermaid
+graph LR
+    PWR[5V 2A Power Supply] -->|5V| VCC_SERVO[Servo VCC]
+    PWR -->|GND| GND_SERVO[Servo GND]
+    PWR -->|5V| VCC_ESP[ESP32 5V In]
+    PWR -->|GND| GND_ESP[ESP32 GND]
+    
+    ESP[ESP32-C3 Supermini] -->|GPIO 4 - SDA| OLED[SSD1306 OLED]
+    ESP -->|GPIO 5 - SCL| OLED
+    ESP -->|3.3V| OLED
+    ESP -->|GND| OLED
+    
+    ESP -->|GPIO 7 - PWM| PAN[Pan Servo]
+    ESP -->|GPIO 6 - PWM| TILT[Tilt Servo]
+    
+    classDef esp fill:#2b2b2b,stroke:#ff8800,stroke-width:2px,color:#fff;
+    classDef pwr fill:#d43f3a,stroke:#333,stroke-width:2px,color:#fff;
+    class ESP esp;
+    class PWR pwr;
+```
+
+---
+
+## 🧠 Logic Flowchart
+
+```mermaid
+stateDiagram-v2
+    [*] --> Setup
+    Setup --> BLE_Passive_Scan : Init Radio
+    Setup --> Asleep : Default State
+    
+    state Asleep {
+        direction LR
+        Sleeping --> Twitch : Random Interval
+        Twitch --> Sleeping : Confused Dream
+    }
+    
+    state Awake {
+        direction LR
+        Active --> LookAround : Native IdleMode
+        LookAround --> Active : Servo Pan/Tilt
+    }
+    
+    BLE_Passive_Scan --> Detect_Signal : Any BLE Device > -55 dBm
+    
+    Detect_Signal --> Awake : Wake up Trigger
+    Awake --> Asleep : No signal for 60s
+```
 
 ---
 
 ## 📦 Required Libraries
-If you're using PlatformIO, these are automatically installed via `platformio.ini`. If you're using the standard **Arduino IDE**, you must install these via the Library Manager:
+If you're using PlatformIO, these are automatically installed via `platformio.ini`. If you're using the standard **Arduino IDE**, install these via the Library Manager:
 - `Adafruit GFX Library` by Adafruit
 - `Adafruit SSD1306` by Adafruit
-- `ESP32Servo` by Kevin Harrington, John K. Bennett
+- `ESP32Servo` by Kevin Harrington
 - `FluxGarage RoboEyes` by FluxGarage
+- `NimBLE-Arduino` by h2zero
 
 ---
 
@@ -51,21 +98,21 @@ This project is natively configured for **PlatformIO**.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/devakshay07/Era-DeskBot.git
-   cd Era-DeskBot
+   git clone https://github.com/devakshay07/EraDeskBot.git
+   cd EraDeskBot
    ```
-2. Open the folder in VSCode with the PlatformIO extension installed.
-3. Build and Upload to your ESP32-C3 Supermini. All library dependencies are automatically downloaded via `platformio.ini`.
+2. *(Optional)* Update `ssid` and `password` in `src/main.cpp` to enable OTA updates. Leave default to run offline perfectly.
+3. Open the folder in VSCode with the PlatformIO extension installed.
+4. Build and Upload to your ESP32-C3 Supermini.
 
 ---
 
 ## 🙏 Credits & Open Source
-This project stands on the shoulders of giants. Massive thanks to the developers of these open-source libraries:
-- [FluxGarage/RoboEyes](https://github.com/FluxGarage/RoboEyes) - For the incredible expressive OLED eye animations.
-- [Adafruit GFX & SSD1306](https://github.com/adafruit/Adafruit-GFX-Library) - For the core display rendering engines.
-- [madhephaestus/ESP32Servo](https://github.com/madhephaestus/ESP32Servo) - For rock-solid hardware timer PWM generation on the ESP32.
-
----
+Massive thanks to:
+- [FluxGarage/RoboEyes](https://github.com/FluxGarage/RoboEyes) 
+- [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library) 
+- [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
+- [ESP32Servo](https://github.com/madhephaestus/ESP32Servo) 
 
 ## 📜 License
-This project is open-source and licensed under the **MIT License**. See the `LICENSE` file for more details.
+Licensed under the **MIT License**. See `LICENSE` for details.
