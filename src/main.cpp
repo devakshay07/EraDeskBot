@@ -5,6 +5,12 @@
 #include <FluxGarage_RoboEyes.h>
 #include <ESP32Servo.h>
 #include "esp_task_wdt.h"
+#include <WiFi.h>
+#include <ArduinoOTA.h>
+
+/* WIFI & OTA CREDENTIALS */
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 /* OLED */
 #define SCREEN_WIDTH 128
@@ -166,6 +172,14 @@ void setup() {
 
   esp_task_wdt_init(&wdt_config);
   esp_task_wdt_add(NULL);
+
+  /* WiFi & OTA (Non-Blocking) */
+  if (String(ssid) != "YOUR_WIFI_SSID") {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    ArduinoOTA.setHostname("EraDeskBot");
+    ArduinoOTA.begin();
+  }
 }
 
 /* ================= LOOP ================= */
@@ -173,6 +187,10 @@ void setup() {
 void loop() {
 
   esp_task_wdt_reset();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    ArduinoOTA.handle();
+  }
 
   idleScan();
 
