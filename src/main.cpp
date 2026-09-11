@@ -75,8 +75,10 @@ void updateServo() {
 
 /* ================= IDLE SCAN & PRESENCE ================= */
 void idleScan() {
-  // If OTA is active, don't do random idle movements to prevent distraction
-  if (otaActive) return;
+  // If OTA is active, artificially keep the bot fully awake so it continues to animate normally
+  if (otaActive) {
+    lastHighRssiTime = millis();
+  }
 
   // If we saw a strong BLE signal within the last minute, stay awake!
   if (millis() - lastHighRssiTime < SLEEP_TIMEOUT) {
@@ -165,11 +167,11 @@ void loop() {
       otaActive = true;
       otaStartTime = millis();
       
+      // Stop BLE scanning to give 100% of the antenna to WiFi
+      NimBLEDevice::getScan()->stop();
+      
       // Visual feedback that OTA is listening
       roboEyes.setMood(HAPPY); 
-      roboEyes.setPosition(DEFAULT);
-      roboEyes.setIdleMode(false); 
-      targetPan = 90; targetTilt = 90;
       
       WiFi.mode(WIFI_STA);
       WiFi.begin(ssid, password);
@@ -193,10 +195,10 @@ void loop() {
       WiFi.disconnect(true);
       WiFi.mode(WIFI_OFF);
       
-      // Visual feedback that OTA mode closed
-      roboEyes.setMood(TIRED); 
+      // Restart BLE scanning
+      NimBLEDevice::getScan()->start(0, nullptr, false);
       
-      // Reset the presence timer so it wakes up normally again
+      // Force sleep to visually indicate OTA window closed
       lastHighRssiTime = millis() - SLEEP_TIMEOUT; 
     }
   }
