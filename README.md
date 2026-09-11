@@ -14,7 +14,7 @@ Meet **Era DeskBot**, a tiny, expressive, and zero-setup smart desk companion bu
 
 - **Zero-Setup BLE Proximity Detection:** Era automatically detects when you sit at your desk by passively scanning for the raw BLE signals emitted by your iPhone, Apple Watch, or AirPods. No apps, no pairing, no hardcoded MAC addresses. Just walk up, and it wakes up.
 - **Expressive OLED Eyes:** Uses the `FluxGarage RoboEyes` library for smooth, animated expressions (blinking, tiredness, confusion).
-- **Over-The-Air (OTA) Updates:** Lightweight, non-blocking OTA update support. Flash new code wirelessly without dropping frames.
+- **On-Demand OTA Updates (No Stutter):** To prevent radio bottlenecks, Wi-Fi stays physically powered off. Pressing the physical BOOT button (GPIO 9) wakes up the Wi-Fi for 5 minutes, changes the bot's mood to `HAPPY`, and listens for an Over-The-Air firmware flash. After 5 minutes, it kills the Wi-Fi to restore maximum frame rates.
 - **Smooth 2-Axis Motion:** Pan and tilt tracking using dual servos with built-in software easing for fluid movements.
 - **State Machine Architecture:** Non-blocking `millis()` based loops and hardware Watchdog protection.
 
@@ -59,7 +59,7 @@ graph LR
 ```mermaid
 stateDiagram-v2
     [*] --> Setup
-    Setup --> BLE_Passive_Scan : Init Radio
+    Setup --> BLE_Passive_Scan : Init Radio (WiFi OFF)
     Setup --> Asleep : Default State
     
     state Asleep {
@@ -74,10 +74,19 @@ stateDiagram-v2
         LookAround --> Active : Servo Pan/Tilt
     }
     
+    state OTA_Mode {
+        direction LR
+        WiFi_ON --> Listening : ArduinoOTA
+    }
+    
     BLE_Passive_Scan --> Detect_Signal : Any BLE Device > -55 dBm
     
     Detect_Signal --> Awake : Wake up Trigger
     Awake --> Asleep : No signal for 60s
+    
+    Asleep --> OTA_Mode : Press BOOT Button (GPIO 9)
+    Awake --> OTA_Mode : Press BOOT Button
+    OTA_Mode --> Asleep : 5 Minute Timeout (WiFi OFF)
 ```
 
 ---

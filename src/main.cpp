@@ -13,6 +13,13 @@
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
+/* OTA TRIGGER BUTTON */
+#define OTA_BUTTON_PIN 9 // The BOOT button on the ESP32-C3 Supermini
+bool otaActive = false;
+bool otaInitialized = false;
+unsigned long otaStartTime = 0;
+const unsigned long OTA_TIMEOUT_MS = 300000; // 5 minutes
+
 /* OLED */
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -68,6 +75,9 @@ void updateServo() {
 
 /* ================= IDLE SCAN & PRESENCE ================= */
 void idleScan() {
+  // If OTA is active, don't do random idle movements to prevent distraction
+  if (otaActive) return;
+
   // If we saw a strong BLE signal within the last minute, stay awake!
   if (millis() - lastHighRssiTime < SLEEP_TIMEOUT) {
     if (restMode) {
@@ -105,6 +115,10 @@ void setup() {
   Serial.begin(115200);
   randomSeed(esp_random());
 
+  /* OTA Button Setup */
+  pinMode(OTA_BUTTON_PIN, INPUT_PULLUP);
+  WiFi.mode(WIFI_OFF); // Start with WiFi completely off for max radio performance
+
   /* I2C & Display */
   Wire.begin(SDA_PIN, SCL_PIN);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -128,7 +142,7 @@ void setup() {
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setActiveScan(false); // Passive scan uses less power & CPU
   pBLEScan->setInterval(100);
-  pBLEScan->setWindow(50); // Scan 50% of the time to leave radio room for WiFi
+  pBLEScan->setWindow(50); // Scan 50% of the time
   pBLEScan->start(0, nullptr, false); // 0 = scan forever, false = non-blocking
 
   /* Watchdog */
@@ -139,22 +153,54 @@ void setup() {
   };
   esp_task_wdt_init(&wdt_config);
   esp_task_wdt_add(NULL);
-
-  /* WiFi & OTA (Non-Blocking) */
-  if (String(ssid) != "YOUR_WIFI_SSID") {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    ArduinoOTA.setHostname("EraDeskBot");
-    ArduinoOTA.begin();
-  }
 }
 
 /* ================= LOOP ================= */
 void loop() {
   esp_task_wdt_reset();
-  if (WiFi.status() == WL_CONNECTED) {
-    ArduinoOTA.handle();
+
+  /* OTA Button Logic */
+  if (!otaActive && digitalRead(OTA_BUTTON_PIN) == LOW) {
+    if (String(ssid) != "YOUR_WIFI_SSID") {
+      otaActive = true;
+      otaStartTime = millis();
+      
+      // Visual feedback that OTA is listening
+      roboEyes.setMood(HAPPY); 
+      roboEyes.setPosition(DEFAULT);
+      roboEyes.setIdleMode(false); 
+      targetPan = 90; targetTilt = 90;
+      
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(ssid, password);
+      
+      if (!otaInitialized) {
+        ArduinoOTA.setHostname("EraDeskBot");
+        ArduinoOTA.begin();
+        otaInitialized = true;
+      }
+    }
   }
+
+  if (otaActive) {
+    if (WiFi.status() == WL_CONNECTED) {
+      ArduinoOTA.handle();
+    }
+    
+    // Auto-disable WiFi after 5 minutes to restore performance
+    if (millis() - otaStartTime > OTA_TIMEOUT_MS) {
+      otaActive = false;
+      WiFi.disconnect(true);
+      WiFi.mode(WIFI_OFF);
+      
+      // Visual feedback that OTA mode closed
+      roboEyes.setMood(TIRED); 
+      
+      // Reset the presence timer so it wakes up normally again
+      lastHighRssiTime = millis() - SLEEP_TIMEOUT; 
+    }
+  }
+
   idleScan();
   updateServo();
   roboEyes.update();
