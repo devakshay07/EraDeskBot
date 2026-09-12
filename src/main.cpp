@@ -247,6 +247,8 @@ void idleScan() {
 /* ================= SETUP ================= */
 void setup() {
   Serial.begin(115200);
+  delay(2000); // Give USB CDC time to attach
+  Serial.println("\n[SYSTEM] Booting EraDeskBot...");
   randomSeed(esp_random());
 
   /* HW Inputs */
@@ -324,8 +326,17 @@ void loop() {
   }
 
   if (otaActive) {
+    // Print IP address once it connects
+    static bool ipPrinted = false;
     if (WiFi.status() == WL_CONNECTED) {
+      if (!ipPrinted) {
+        Serial.print("\n[OTA] Connected! IP Address: ");
+        Serial.println(WiFi.localIP());
+        ipPrinted = true;
+      }
       ArduinoOTA.handle();
+    } else {
+      ipPrinted = false;
     }
     
     // Auto-disable WiFi after 5 minutes to restore performance
