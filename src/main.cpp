@@ -98,7 +98,7 @@ void onPomoTap() {
 void onPomoHold() {
   if (pomoState == POMO_INACTIVE) {
     pomoState = POMO_CONFIG;
-    pomoMinutes = 25; // Default starting minutes
+    pomoMinutes = 5; // Default starting minutes
     targetPan = 90; targetTilt = 90; // Center the head
   } else if (pomoState == POMO_CONFIG) {
     pomoState = POMO_RUNNING;
