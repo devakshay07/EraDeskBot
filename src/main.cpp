@@ -21,6 +21,7 @@ const char* password = "10101980";
 #define OTA_BUTTON_PIN 9 // The BOOT button on the ESP32-C3 Supermini
 bool otaActive = false;
 bool otaInitialized = false;
+bool isUpdating = false;
 unsigned long otaStartTime = 0;
 const unsigned long OTA_TIMEOUT_MS = 300000; // 5 minutes
 
@@ -349,6 +350,35 @@ void loop() {
       
       if (!otaInitialized) {
         ArduinoOTA.setHostname("EraDeskBot");
+        
+        // Bulletproof OTA Callbacks
+        ArduinoOTA.onStart([]() {
+          isUpdating = true;
+          String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+          Serial.println("Start updating " + type);
+          // FREEZE hardware to prevent brownouts/interrupts during flash write
+          panServo.detach();
+          tiltServo.detach();
+          display.clearDisplay();
+          display.setCursor(20, 30);
+          display.setTextSize(2);
+          display.print("UPDATING");
+          display.display();
+        });
+        
+        ArduinoOTA.onEnd([]() {
+          Serial.println("\nEnd");
+        });
+        
+        ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+          esp_task_wdt_reset(); // Feed Watchdog during heavy flash writes
+          Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+        });
+        
+        ArduinoOTA.onError([](ota_error_t error) {
+          Serial.printf("Error[%u]: ", error);
+        });
+
         ArduinoOTA.begin();
         otaInitialized = true;
       }
@@ -382,6 +412,8 @@ void loop() {
       lastHighRssiTime = millis() - SLEEP_TIMEOUT; 
     }
   }
+
+  if (isUpdating) return; // Completely halt all non-essential hardware updates during flash write
 
   updateServo();
 
