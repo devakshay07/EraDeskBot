@@ -12,10 +12,11 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 #include <NimBLEDevice.h>
+#include "secrets.h"
 
 /* WIFI & OTA CREDENTIALS */
-const char* ssid = "lalit kumar";
-const char* password = "10101980";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
 
 /* OTA TRIGGER BUTTON */
 #define OTA_BUTTON_PIN 9 // The BOOT button on the ESP32-C3 Supermini
