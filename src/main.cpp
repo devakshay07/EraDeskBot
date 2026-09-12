@@ -73,12 +73,16 @@ bool lastTouch = false;
 unsigned long touchStartTime = 0;
 bool touchHandled = false;
 
+void exitPomodoro() {
+  pomoState = POMO_INACTIVE;
+  lastHighRssiTime = millis(); // Force it to stay awake
+  restMode = false;
+  roboEyes.setMood(HAPPY);
+  roboEyes.setIdleMode(true, 4, 2);
+}
+
 void onPomoTap() {
-  if (pomoState == POMO_INACTIVE) {
-    pomoState = POMO_CONFIG;
-    pomoMinutes = 25; // Default starting minutes
-    targetPan = 90; targetTilt = 90; // Center the head
-  } else if (pomoState == POMO_CONFIG) {
+  if (pomoState == POMO_CONFIG) {
     pomoMinutes += 5;
     if (pomoMinutes > 120) pomoMinutes = 5;
   } else if (pomoState == POMO_RUNNING) {
@@ -91,12 +95,16 @@ void onPomoTap() {
 }
 
 void onPomoHold() {
-  if (pomoState == POMO_CONFIG) {
+  if (pomoState == POMO_INACTIVE) {
+    pomoState = POMO_CONFIG;
+    pomoMinutes = 25; // Default starting minutes
+    targetPan = 90; targetTilt = 90; // Center the head
+  } else if (pomoState == POMO_CONFIG) {
     pomoState = POMO_RUNNING;
     pomoRemainingMs = pomoMinutes * 60000UL;
     pomoStartTime = millis();
   } else if (pomoState == POMO_RUNNING || pomoState == POMO_PAUSED) {
-    pomoState = POMO_INACTIVE;
+    exitPomodoro();
   }
 }
 
@@ -125,11 +133,26 @@ void handleTouch() {
   lastTouch = currentTouch;
 }
 
+void executeWaveMotion() {
+    roboEyes.setMood(HAPPY);
+    roboEyes.setPosition(DEFAULT);
+    for (int i = 0; i < 3; i++) {
+        panServo.write(120);
+        delay(200);
+        panServo.write(60);
+        delay(200);
+    }
+    panServo.write(90);
+    targetPan = 90;
+    targetTilt = 90;
+    panPos = 90;
+    tiltPos = 90;
+}
+
 void drawPomodoroUI() {
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
-  
   if (pomoState == POMO_CONFIG) {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
     display.setTextSize(1);
     display.setCursor(35, 5);
     display.print("POMO SETUP");
@@ -142,7 +165,8 @@ void drawPomodoroUI() {
     
     display.print(pomoMinutes);
     display.print("m");
-  } else {
+    display.display();
+  } else if (pomoState == POMO_RUNNING || pomoState == POMO_PAUSED) {
     unsigned long remaining = pomoRemainingMs;
     if (pomoState == POMO_RUNNING) {
       if (millis() - pomoStartTime >= pomoRemainingMs) {
@@ -152,17 +176,29 @@ void drawPomodoroUI() {
       }
     }
     
+    if (remaining == 0) {
+      // DONE! 
+      display.clearDisplay();
+      display.setTextColor(SSD1306_WHITE);
+      display.setTextSize(2);
+      display.setCursor(35, 25);
+      display.print("DONE!");
+      display.display();
+      
+      executeWaveMotion();
+      exitPomodoro();
+      return;
+    }
+    
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
     int mins = remaining / 60000;
     int secs = (remaining % 60000) / 1000;
     
     display.setTextSize(1);
-    
     if (pomoState == POMO_PAUSED) {
       display.setCursor(45, 5);
       display.print("PAUSED");
-    } else if (remaining == 0) {
-      display.setCursor(45, 5);
-      display.print("DONE!");
     } else {
       display.setCursor(45, 5);
       display.print("FOCUS");
@@ -176,17 +212,9 @@ void drawPomodoroUI() {
     if (secs < 10) display.print("0");
     display.print(secs);
     
-    // Shake head when done
-    if (remaining == 0) {
-      if (millis() - lastMove > 500) {
-        targetPan = (targetPan == 70) ? 110 : 70;
-        lastMove = millis();
-      }
-    } else {
-      targetPan = 90; targetTilt = 90;
-    }
+    targetPan = 90; targetTilt = 90;
+    display.display();
   }
-  display.display();
 }
 
 /* ================= SERVO ================= */
