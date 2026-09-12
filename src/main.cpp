@@ -2,6 +2,10 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
+#ifdef DEFAULT
+#undef DEFAULT
+#endif
 #include <FluxGarage_RoboEyes.h>
 #include <ESP32Servo.h>
 #include "esp_task_wdt.h"
@@ -10,8 +14,8 @@
 #include <NimBLEDevice.h>
 
 /* WIFI & OTA CREDENTIALS */
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "lalit kumar";
+const char* password = "10101980";
 
 /* OTA TRIGGER BUTTON */
 #define OTA_BUTTON_PIN 9 // The BOOT button on the ESP32-C3 Supermini
@@ -234,7 +238,7 @@ void idleScan() {
     }
     // Occasional twitch/dream while sleeping
     if (millis() - lastEyeMove > 5000) {
-      if (random(0, 10) > 8) roboEyes.animConfused();
+      if (random(0, 10) > 8) roboEyes.anim_confused();
       lastEyeMove = millis();
     }
   }
@@ -277,12 +281,16 @@ void setup() {
   pBLEScan->start(0, nullptr, false); // 0 = scan forever, false = non-blocking
 
   /* Watchdog */
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
   esp_task_wdt_config_t wdt_config = {
       .timeout_ms = 5000,
       .idle_core_mask = (1 << 0),
       .trigger_panic = true
   };
   esp_task_wdt_init(&wdt_config);
+#else
+  esp_task_wdt_init(5, true);
+#endif
   esp_task_wdt_add(NULL);
 }
 
