@@ -259,8 +259,10 @@ void setup() {
   /* I2C & Display */
   Wire.begin(SDA_PIN, SCL_PIN);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("\n[ERROR] OLED not found! Check SDA (GPIO 4), SCL (GPIO 5), and power.");
     while (true) delay(100);
   }
+  Serial.println("[SYSTEM] OLED initialized.");
   roboEyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 100);
   roboEyes.setAutoblinker(true, 3, 2);
   roboEyes.setIdleMode(false); // We start asleep
